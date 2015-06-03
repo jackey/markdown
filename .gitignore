@@ -1,2 +1,4 @@
 *.o
 markdown*
+
+moc*.cpp
