@@ -7,7 +7,6 @@
 //
 
 #include "window.h"
-#include "mdconvert.h"
 #include "mdhandler.h"
 #include <QWidget>
 #include <QMenu>
@@ -16,17 +15,26 @@
 #include <QTextEdit>
 #include <QGridLayout>
 #include <QSizePolicy>
+#include <QTextStream>
+#include <QFile>
+#include <iostream>
 
 namespace md {
     Window::Window(QWidget *parent) {
+        QFile file(":/style/screen.css");
+        file.open(QIODevice::ReadOnly | QIODevice::Text);
+        screenStyleFile = new QTextStream(&file);
+        
+        std::cout << file.size() << std::endl;
+        
         createMenus();
         createComponents();
-        
         initMdHandler();
+
     }
     
     Window::~Window() {
-        //TODO::
+        delete screenStyleFile;
     }
     
     void Window::initMdHandler() {
@@ -39,17 +47,25 @@ namespace md {
     void Window::createMenus() {
         QAction *action;
         
+        // 文件相关菜单
         QMenu *file = new QMenu(this);
         
-        action = new QAction("Open", this);
+        action = new QAction(tr("&Open"), this);
         action->setShortcut(tr("CTRL+O"));
         file->addAction(action);
+        file->addSeparator();
         
-        action = new QAction("Close", this);
-        action->setShortcut(tr("CTRL+C"));
+        action = new QAction(tr("&Save"), this);
+        action->setShortcut(tr("CTRL+S"));
         file->addAction(action);
+        file->addSeparator();
         
-        menuBar()->addMenu(file)->setText("&File");
+        menuBar()->addMenu(file)->setText(tr("&File"));
+        
+        // 编辑相关菜单
+        QMenu *edit = new QMenu(this);
+        
+        menuBar()->addMenu(edit)->setText(tr("&Edit"));
         
         statusBar();
     }
@@ -57,11 +73,23 @@ namespace md {
     void Window::createComponents() {
         mdEditor = new QTextEdit(this);
         mdEditor->setSizePolicy(QSizePolicy ::Expanding , QSizePolicy ::Expanding);
-        mdEditor->setText("Play markdown here !");
+        mdEditor->setText("#happy in markdown");
         
         htmlEditor = new QTextEdit(this);
         htmlEditor->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-        htmlEditor->setText("Show your html here !");
+        QTextDocument *document = new QTextDocument();
+        if (screenStyleFile) {
+            screenStyleFile->reset();
+            screenStyleFile->seek(0);
+            QString css = screenStyleFile->readAll();
+            qDebug(css.toUtf8().data());
+            document->setDefaultStyleSheet(css);
+        }
+        else {
+            qDebug("Read css failed");
+        }
+
+        htmlEditor->setDocument(document);
         
         QGridLayout *mainLayout = new QGridLayout();
         mainLayout->addWidget(mdEditor, 0, 0);
@@ -76,6 +104,9 @@ namespace md {
     }
     
     void Window::handleMdCompiled(QString str) {
+        str.append("</body></html>");
+        str.prepend("<html><body>");
+        qDebug(str.toUtf8().data());
         htmlEditor->setHtml(str);
     }
 }

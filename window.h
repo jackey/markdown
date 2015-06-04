@@ -13,8 +13,8 @@
 #include <QWidget>
 #include <QMainWindow>
 
-
 class QTextEdit;
+class QTextStream;
 
 namespace md {
     
@@ -35,6 +35,7 @@ namespace md {
     private:
         QTextEdit *mdEditor;
         QTextEdit *htmlEditor;
+        QTextStream *screenStyleFile;
         
     };
 }
