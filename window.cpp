@@ -18,19 +18,19 @@
 #include <QTextStream>
 #include <QFile>
 #include <iostream>
+#include <QFileDialog>
+#include <QDir>
+#include <QPrinter>
 
 namespace md {
     Window::Window(QWidget *parent) {
-        QFile file(":/style/screen.css");
-        file.open(QIODevice::ReadOnly | QIODevice::Text);
-        screenStyleFile = new QTextStream(&file);
-        
-        std::cout << file.size() << std::endl;
+        QFile styleFile(":/style/screen.css");
+        styleFile.open(QIODevice::ReadOnly | QIODevice::Text);
+        screenStyleFile = new QTextStream(&styleFile);
         
         createMenus();
         createComponents();
         initMdHandler();
-
     }
     
     Window::~Window() {
@@ -51,13 +51,23 @@ namespace md {
         QMenu *file = new QMenu(this);
         
         action = new QAction(tr("&Open"), this);
-        action->setShortcut(tr("CTRL+O"));
+        action->setShortcut(QKeySequence::Open);
         file->addAction(action);
         file->addSeparator();
         
-        action = new QAction(tr("&Save"), this);
-        action->setShortcut(tr("CTRL+S"));
-        file->addAction(action);
+        saveAction = new QAction(tr("&Save"), this);
+        saveAction->setShortcut(QKeySequence::Save);
+        file->addAction(saveAction);
+        QObject::connect(saveAction, SIGNAL(triggered()), this, SLOT(saveTriggered()));
+        
+        htmlAction =new QAction(tr("&Save As HTML"), this);
+        QObject::connect(htmlAction, SIGNAL(triggered()), this, SLOT(saveAsHTML()));
+        file->addAction(htmlAction);
+        
+        pdfAction = new QAction(tr("&Save As PDF"), this);
+        QObject::connect(pdfAction, SIGNAL(triggered()), this, SLOT(saveAsPDF()));
+        file->addAction(pdfAction);
+        
         file->addSeparator();
         
         menuBar()->addMenu(file)->setText(tr("&File"));
@@ -73,7 +83,7 @@ namespace md {
     void Window::createComponents() {
         mdEditor = new QTextEdit(this);
         mdEditor->setSizePolicy(QSizePolicy ::Expanding , QSizePolicy ::Expanding);
-        mdEditor->setText("#happy in markdown");
+        mdEditor->setText("");
         
         htmlEditor = new QTextEdit(this);
         htmlEditor->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -82,13 +92,15 @@ namespace md {
             screenStyleFile->reset();
             screenStyleFile->seek(0);
             QString css = screenStyleFile->readAll();
-            qDebug(css.toUtf8().data());
             document->setDefaultStyleSheet(css);
         }
         else {
             qDebug("Read css failed");
         }
-
+        
+        const QString defaultHtml = MdHandler::markdown(mdEditor->toPlainText());
+        document->setHtml(defaultHtml);
+        
         htmlEditor->setDocument(document);
         
         QGridLayout *mainLayout = new QGridLayout();
@@ -106,8 +118,78 @@ namespace md {
     void Window::handleMdCompiled(QString str) {
         str.append("</body></html>");
         str.prepend("<html><body>");
-        qDebug(str.toUtf8().data());
         htmlEditor->setHtml(str);
+    }
+    
+    void Window::saveAsHTML() {
+        if (htmlSaveTo.isEmpty()) {
+            QString homeDir = QDir::homePath();
+            htmlSaveTo = QFileDialog::getSaveFileName(this, tr("Save HTML To"), homeDir.append("/Documents"), tr("Pdf Files (*.html)"));
+        }
+        
+        // 用户选择文件后 存储选择位置
+        if (!htmlSaveTo.isEmpty()) {
+            QString html = htmlEditor->toHtml();
+            QFile saveTo(htmlSaveTo);
+            saveTo.open(QIODevice::WriteOnly | QIODevice::Text);
+            char *data = html.toUtf8().data();
+            saveTo.write(html.toUtf8().data(), strlen(data));
+            saveTo.close();
+            
+            saveType = SAVE_HTML;
+        }
+    }
+    
+    void Window::saveAsPDF() {
+        if (pdfSaveTo.isEmpty()) {
+            QString homeDir = QDir::homePath();
+            pdfSaveTo = QFileDialog::getSaveFileName(this, tr("Save PDF To"), homeDir.append("/Documents"), tr("HTML Files (*.pdf)"));
+        }
+        
+        if (!pdfSaveTo.isEmpty()) {
+            QString html = htmlEditor->toHtml();
+            QPrinter printer(QPrinter::HighResolution);
+            printer.setPageSize(QPrinter::A4);
+            printer.setOutputFormat(QPrinter::PdfFormat);
+            
+            printer.setOutputFileName(pdfSaveTo);
+            
+            QTextDocument *document = new QTextDocument();
+            document->setHtml(html);
+            
+            document->print(&printer);
+            delete document;
+            
+            saveType = SAVE_PDF;
+        }
+    }
+    
+    void Window::saveTriggered() {
+        switch (saveType) {
+            case SAVE_HTML:
+                if (!htmlSaveTo.isEmpty()) {
+                    emit htmlAction->trigger();
+                }
+                break;
+            case SAVE_PDF:
+                if (!pdfSaveTo.isEmpty()) {
+                    emit pdfAction->trigger();
+                }
+                break;
+        }
+        QString homeDir = QDir::homePath();
+        if (mdSaveTo.isEmpty()) {
+            mdSaveTo = QFileDialog::getSaveFileName(this,
+                                                    tr("Save Markdown File To"),
+                                                    homeDir.append("/Documents"),
+                                                    tr("Markdown files (*.md)"));
+        }
+        
+        QFile saveTo(mdSaveTo);
+        saveTo.open(QIODevice::WriteOnly | QIODevice::Text);
+        char *data = mdEditor->toPlainText().toUtf8().data();
+        saveTo.write(data, strlen(data));
+        saveTo.close();
     }
 }
 

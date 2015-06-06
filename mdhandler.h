@@ -21,6 +21,7 @@ public:
     MdHandler(QTextEdit *);
     ~MdHandler();
     const QString getCompiledMd();
+    static const QString markdown(QString mdText);
     
 public slots:
     void handleMdChanged();

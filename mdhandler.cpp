@@ -34,8 +34,6 @@ void MdHandler::handleMdChanged() {
     const char *txt = str.toUtf8().constData();
     int size = strlen(txt);
     
-    std::cout << "输入: " << txt << std::endl;
-    
     MMIOT *mddoc;
     
     mddoc = mkd_string(txt, size, 0);
@@ -57,6 +55,30 @@ void MdHandler::handleMdChanged() {
     
     // 触发事件
     emit mdCompiled(html);
+}
+
+// 编译 Markdown -> HTML
+const QString MdHandler::markdown(QString mdText) {
+    const char *data = mdText.toUtf8().constData();
+    int size = strlen(data);
+    
+    std::cout << "编译的内容: " << data << std::endl;
+    
+    MMIOT *doc = mkd_string(data, size, 0);
+    mkd_compile(doc, 0);
+    char *buf;
+    int sizeBuf;
+    sizeBuf = mkd_document(doc, &buf);
+    
+    std::cout << "编译的长度: " << sizeBuf;
+    
+    QString html = QString::fromUtf8(buf);
+    
+    free(buf);
+    
+    std::cout << "默认HTML " << html.toUtf8().data();
+    
+    return html;
 }
 
 

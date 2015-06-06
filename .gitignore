@@ -2,3 +2,5 @@
 markdown*
 
 moc*.cpp
+
+qrc_*
